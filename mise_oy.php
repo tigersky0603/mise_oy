@@ -9,11 +9,9 @@ $longitude = $_GET['lng'] ?? null; // URL 파라미터에서 경도 가져오기
 
 // 위도나 경도가 없을 경우 처리
 if ($latitude === null || $longitude === null) {
-    // HTML5 Geolocation API를 통해 사용자 위치 정보 가져오기
-    $location_data = file_get_contents("https://www.googleapis.com/geolocation/v1/geolocate?key=YOUR_GOOGLE_API_KEY");
-    $location_data = json_decode($location_data, true); // JSON 데이터를 배열로 변환
-    $latitude = $location_data['location']['lat']; // 위도 설정
-    $longitude = $location_data['location']['lng']; // 경도 설정
+    // 기본 위치 설정 (예: 서울시청)
+    $latitude = 37.5665;
+    $longitude = 126.9780;
 }
 
 // 기상청 단기예보 조회 API 호출
@@ -78,357 +76,396 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
     <style>
         /* 기존 스타일 */
         body {
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #F0F4F8;
-            color: #333333;
-            transition: background-color 0.3s, color 0.3s;
+            font-family: 'Arial', sans-serif; /* 기본 폰트 설정 */
+            margin: 0; /* 바깥 여백 제거 */
+            padding: 0; /* 안쪽 여백 제거 */
+            background-color: #F0F4F8; /* 배경색 설정 */
+            color: #333333; /* 텍스트 색상 설정 */
+            transition: background-color 0.3s, color 0.3s; /* 배경색과 텍스트 색상 전환 효과 */
         }
         
         /* 다크모드 스타일 */
         body.dark-mode {
-            background-color: #1a1a1a;
-            color: #f0f0f0;
+            background-color: #1a1a1a; /* 다크모드 배경색 */
+            color: #f0f0f0; /* 다크모드 텍스트 색상 */
         }
         
         .dark-mode .section {
-            background-color: #2a2a2a;
-            color: #f0f0f0;
+            background-color: #2a2a2a; /* 다크모드 섹션 배경색 */
+            color: #f0f0f0; /* 다크모드 섹션 텍스트 색상 */
         }
         
         .dark-mode .page-title {
-            background-color: #2c3e50;
-            color: #ffffff;
+            background-color: #2c3e50; /* 다크모드 페이지 제목 배경색 */
+            color: #ffffff; /* 다크모드 페이지 제목 텍스트 색상 */
         }
         
         .dark-mode .current-weather {
-            background-color: #1c2833;
+            background-color: #1c2833; /* 다크모드 현재 날씨 섹션 배경색 */
         }
         
         .dark-mode .air-quality {
-            background-color: #1e3a2e;
+            background-color: #1e3a2e; /* 다크모드 대기질 섹션 배경색 */
         }
         
         .dark-mode .weather-map {
-            background-color: #2c3e50;
+            background-color: #2c3e50; /* 다크모드 날씨 지도 섹션 배경색 */
         }
         
         .dark-mode .news-section {
-            background-color: #1c2833;
+            background-color: #1c2833; /* 다크모드 뉴스 섹션 배경색 */
         }
         
         .dark-mode .news-item {
-            background-color: #2a2a2a;
-            color: #f0f0f0;
+            background-color: #2a2a2a; /* 다크모드 뉴스 아이템 배경색 */
+            color: #f0f0f0; /* 다크모드 뉴스 아이템 텍스트 색상 */
         }
         
         .dark-mode .news-item h3 {
-            color: #4da6ff;
+            color: #4da6ff; /* 다크모드 뉴스 아이템 제목 색상 */
         }
         
         .dark-mode .temperature {
-            color: #4da6ff;
+            color: #4da6ff; /* 다크모드 온도 텍스트 색상 */
         }
         
         /* 챗봇 다크모드 스타일 */
         .dark-mode .chatbot {
-            background-color: #2a2a2a;
-            color: #f0f0f0;
+            background-color: #2a2a2a; /* 다크모드 챗봇 배경색 */
+            color: #f0f0f0; /* 다크모드 챗봇 텍스트 색상 */
         }
         
         .dark-mode .chatbot-header {
-            background-color: #1E3A5F;
+            background-color: #1E3A5F; /* 다크모드 챗봇 헤더 배경색 */
         }
         
         .dark-mode .chatbot-input input {
-            background-color: #3a3a3a;
-            color: #f0f0f0;
-            border-color: #4a4a4a;
+            background-color: #3a3a3a; /* 다크모드 챗봇 입력 필드 배경색 */
+            color: #f0f0f0; /* 다크모드 챗봇 입력 필드 텍스트 색상 */
+            border-color: #4a4a4a; /* 다크모드 챗봇 입력 필드 테두리 색상 */
         }
         
         .dark-mode .chatbot-input button {
-            background-color: #4da6ff;
-            color: #ffffff;
+            background-color: #4da6ff; /* 다크모드 챗봇 전송 버튼 배경색 */
+            color: #ffffff; /* 다크모드 챗봇 전송 버튼 텍스트 색상 */
         }
         
         /* 다크모드 토글 버튼 스타일 */
         .dark-mode-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px;
-            background-color: #333;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            z-index: 1000;
+            position: fixed; /* 고정 위치 */
+            top: 20px; /* 상단에서 20px 떨어짐 */
+            right: 20px; /* 우측에서 20px 떨어짐 */
+            padding: 10px; /* 안쪽 여백 */
+            background-color: #333; /* 배경색 */
+            color: #fff; /* 텍스트 색상 */
+            border: none; /* 테두리 없음 */
+            border-radius: 5px; /* 모서리 둥글게 */
+            cursor: pointer; /* 마우스 오버 시 커서 변경 */
+            z-index: 1000; /* 다른 요소 위에 표시 */
             font-size: 14px; /* 기본 폰트 크기 설정 */
         }
         
         .dark-mode .dark-mode-toggle {
-            background-color: #f0f0f0;
-            color: #333;
+            background-color: #f0f0f0; /* 다크모드에서의 토글 버튼 배경색 */
+            color: #333; /* 다크모드에서의 토글 버튼 텍스트 색상 */
         }
         
         .page-title {
-            text-align: center;
-            padding: 40px 0;
-            background-color: #3D86F5; /* 푸른색 배경 */
-            color: #EFF4FA; /* 흰색 텍스트 */
-            margin: 0;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* 약간의 그림자 추가 */
-            width: 100%; /* 전체 너비를 차지하도록 설정 */
+            text-align: center; /* 텍스트 중앙 정렬 */
+            padding: 40px 0; /* 상하 여백 */
+            background-color: #3D86F5; /* 배경색 */
+            color: #EFF4FA; /* 텍스트 색상 */
+            margin: 0; /* 바깥 여백 제거 */
+            position: relative; /* 상대 위치 설정 */
+            overflow: hidden; /* 내용이 넘치면 숨김 */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* 그림자 효과 */
+            width: 100%; /* 전체 너비 */
         }
         .page-title h1 {
-            margin: 0;
-            font-size: 2.5em;
-            position: relative;
-            z-index: 2;
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.5); /* 텍스트에 약간의 그림자 추가 */
+            margin: 0; /* 여백 제거 */
+            font-size: 2.5em; /* 폰트 크기 */
+            position: relative; /* 상대 위치 설정 */
+            z-index: 2; /* 겹침 순서 */
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.5); /* 텍스트 그림자 */
         }
         .weather-icon {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 60px;
-            height: 60px;
-            z-index: 1;
+            position: absolute; /* 절대 위치 설정 */
+            top: 10px; /* 상단에서 10px 떨어짐 */
+            right: 10px; /* 우측에서 10px 떨어짐 */
+            width: 60px; /* 너비 */
+            height: 60px; /* 높이 */
+            z-index: 1; /* 겹침 순서 */
         }
         .container {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-gap: 20px;
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
+            display: grid; /* 그리드 레이아웃 사용 */
+            grid-template-columns: repeat(3, 1fr); /* 3열 그리드 */
+            grid-gap: 20px; /* 그리드 간격 */
+            padding: 20px; /* 안쪽 여백 */
+            max-width: 1200px; /* 최대 너비 */
+            margin: 0 auto; /* 가운데 정렬 */
         }
         .section {
-            background-color: #FFFFFF;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #FFFFFF; /* 배경색 */
+            border-radius: 10px; /* 모서리 둥글게 */
+            padding: 20px; /* 안쪽 여백 */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 그림자 효과 */
         }
         .section h2 {
-            margin-top: 0;
-            border-bottom: 1px solid #E0E0E0;
-            padding-bottom: 10px;
-            color: #1E3A5F;
+            margin-top: 0; /* 상단 여백 제거 */
+            border-bottom: 1px solid #E0E0E0; /* 하단 테두리 */
+            padding-bottom: 10px; /* 하단 여백 */
+            color: #1E3A5F; /* 텍스트 색상 */
         }
         .current-weather {
-            grid-column: span 2;
-            background-color: #E3F2FD;
+            grid-column: span 2; /* 2열 차지 */
+            background-color: #E3F2FD; /* 배경색 */
         }
         .temperature {
-            font-size: 48px;
-            font-weight: bold;
-            color: #1E88E5;
+            font-size: 48px; /* 폰트 크기 */
+            font-weight: bold; /* 굵은 글씨 */
+            color: #1E88E5; /* 텍스트 색상 */
         }
         .hourly-forecast, .daily-forecast {
-            display: flex;
-            justify-content: space-between;
+            display: flex; /* 플렉스 레이아웃 사용 */
+            justify-content: space-between; /* 요소 간 간격 균등 분배 */
         }
         .forecast-item {
-            text-align: center;
+            text-align: center; /* 텍스트 중앙 정렬 */
         }
         .air-quality {
-            background-color: #E8F5E9;
+            background-color: #E8F5E9; /* 배경색 */
         }
         .air-quality p {
-            margin: 5px 0;
+            margin: 5px 0; /* 상하 여백 */
         }
         .weather-map {
-            background-color: #FFF3E0;
+            background-color: #FFF3E0; /* 배경색 */
         }
         
         /* 챗봇 스타일 수정 */
         .chatbot {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 300px;
-            height: 400px;
-            background-color: #FFFFFF;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            resize: both; /* 양방향 크기 조절 가능하도록 설정 */
-            min-width: 200px; /* 최소 너비 설정 */
-            min-height: 300px; /* 최소 높이 ���정 */
-            max-width: 80vw; /* 최대 너비 설정 */
-            max-height: 80vh; /* 최대 높이 설정 */
-            transition: all 0.3s ease; /* 부드러운 전환 효과 추가 */
+            position: fixed; /* 고정 위치 */
+            bottom: 20px; /* 하단에서 20px 떨어짐 */
+            right: 20px; /* 우측에서 20px 떨어짐 */
+            width: 300px; /* 너비 */
+            height: 400px; /* 높이 */
+            background-color: #FFFFFF; /* 배경색 */
+            border-radius: 10px; /* 모서리 둥글게 */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 그림자 효과 */
+            display: flex; /* 플렉스 레이아웃 사용 */
+            flex-direction: column; /* 세로 방향 정렬 */
+            overflow: hidden; /* 내용이 넘치면 숨김 */
+            transition: all 0.3s ease; /* 전환 효과 */
         }
+
         .chatbot-header {
-            cursor: default; /* 드래그 불가능하게 설정 */
-            padding: 10px;
-            background-color: #1E3A5F;
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            padding: 10px; /* 안쪽 여백 */
+            background-color: #1E3A5F; /* 배경색 */
+            color: white; /* 텍스트 색상 */
+            display: flex; /* 플렉스 레이아웃 사용 */
+            justify-content: space-between; /* 요소 간 간격 균등 분배 */
+            align-items: center; /* 세로 중앙 정렬 */
+            cursor: pointer; /* 마우스 오버 시 커서 변경 */
         }
+
+        /* 챗봇 최소화 스타일 수정 */
+        .chatbot.minimized {
+            width: auto; /* 자동 너비 */
+            height: auto; /* 자동 높이 */
+        }
+        
+        .chatbot.minimized .chatbot-content,
+        .chatbot.minimized .chatbot-input,
+        .chatbot.minimized .resize-handle {
+            display: none; /* 최소화 시 숨김 */
+        }
+        
+        .chatbot.minimized .chatbot-header {
+            border-radius: 10px; /* 모서리 둥글게 */
+            padding: 10px 15px; /* 안쪽 여백 */
+        }
+
         .chatbot-controls {
-            display: flex;
-            align-items: center;
+            display: flex; /* 플렉스 레이아웃 사용 */
+            align-items: center; /* 세로 중앙 정렬 */
         }
         .minimize-btn, .resize-handle {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-            margin-left: 10px;
+            background: none; /* 배경 없음 */
+            border: none; /* 테두리 없음 */
+            color: white; /* 텍스트 색상 */
+            font-size: 20px; /* 폰트 크기 */
+            cursor: pointer; /* 마우스 오버 시 커서 변경 */
+            margin-left: 10px; /* 좌측 여백 */
         }
         .resize-handle {
-            cursor: nwse-resize;
+            cursor: nwse-resize; /* 크기 조절 커서 */
         }
         
         /* 크기 조절 시 우측 하단에 나타나는 크기 조절 핸들 스타일 */
         .chatbot::-webkit-resizer {
-            border-bottom-right-radius: 10px;
+            border-bottom-right-radius: 10px; /* 우측 하단 모서리 둥글게 */
         }
         
         .chatbot-content {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 10px;
+            flex-grow: 1; /* 남은 공간 차지 */
+            overflow-y: auto; /* 세로 스크롤 */
+            padding: 10px; /* 안쪽 여백 */
         }
         .chatbot-messages {
-            padding: 10px;
+            padding: 10px; /* 안쪽 여백 */
         }
         .chatbot-input {
-            display: flex;
-            padding: 10px;
-            border-top: 1px solid #E0E0E0;
+            display: flex; /* 플렉스 레이아웃 사용 */
+            padding: 10px; /* 안쪽 여백 */
+            border-top: 1px solid #E0E0E0; /* 상단 테두리 */
         }
         .chatbot-input input {
-            flex-grow: 1;
-            border: 1px solid #E0E0E0;
-            padding: 5px;
-            margin-right: 5px;
+            flex-grow: 1; /* 남은 공간 차지 */
+            border: 1px solid #E0E0E0; /* 테두리 */
+            padding: 5px; /* 안쪽 여백 */
+            margin-right: 5px; /* 우측 여백 */
         }
         .chatbot-input button {
-            background-color: #1E88E5;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
+            background-color: #1E88E5; /* 배경색 */
+            color: white; /* 텍스트 색상 */
+            border: none; /* 테두리 없음 */
+            padding: 5px 10px; /* 안쪽 여백 */
+            cursor: pointer; /* 마우스 오버 시 커서 변경 */
         }
         .chatbot.minimized {
-            height: auto;
-            width: auto;
-            min-width: auto;
+            height: auto; /* 자동 높이 */
+            width: auto; /* 자동 너비 */
         }
         
         .chatbot.minimized .chatbot-content,
         .chatbot.minimized .chatbot-input {
-            display: none;
+            display: none; /* 최소화 시 숨김 */
         }
         
         .chatbot.minimized .chatbot-header {
-            border-radius: 10px;
-            padding: 5px 10px;
+            border-radius: 10px; /* 모서리 둥글게 */
+            padding: 10px; /* 안쪽 여백 */
+            cursor: pointer; /* 마우스 오버 시 커서 변경 */
         }
 
         /* 뉴스 섹션 스타일 추가 */
         .news-section {
-            grid-column: span 3;
-            background-color: #E1F5FE;
+            grid-column: span 3; /* 3열 차지 */
+            background-color: #E1F5FE; /* 배경색 */
         }
         .news-list {
-            list-style-type: none;
-            padding: 0;
+            list-style-type: none; /* 리스트 스타일 제거 */
+            padding: 0; /* 안쪽 여백 제거 */
         }
         .news-item {
-            margin-bottom: 10px;
-            padding: 10px;
-            background-color: #FFFFFF;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px; /* 하단 여백 */
+            padding: 10px; /* 안쪽 여백 */
+            background-color: #FFFFFF; /* 배경색 */
+            border-radius: 5px; /* 모서리 둥글게 */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 그림자 효과 */
         }
         .news-item h3 {
-            margin: 0 0 5px 0;
-            color: #1E3A5F;
+            margin: 0 0 5px 0; /* 여백 설정 */
+            color: #1E3A5F; /* 텍스트 색상 */
         }
         .news-item p {
-            margin: 0;
-            color: #666666;
+            margin: 0; /* 여백 제거 */
+            color: #666666; /* 텍스트 색상 */
         }
 
         /* 기존 스타일에 추가 */
         .chatbot-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: flex; /* 플렉스 레이아웃 사용 */
+            justify-content: space-between; /* 요소 간 간격 균등 분배 */
+            align-items: center; /* 세로 중앙 정렬 */
         }
         .minimize-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
+            background: none; /* 배경 없음 */
+            border: none; /* 테두리 없음 */
+            color: white; /* 텍스트 색상 */
+            font-size: 20px; /* 폰트 크기 */
+            cursor: pointer; /* 마우스 오버 시 커서 변경 */
         }
         .chatbot.minimized {
-            height: auto;
+            height: auto; /* 자동 높이 */
         }
         .chatbot.minimized .chatbot-content {
-            display: none;
+            display: none; /* 최소화 시 숨김 */
         }
 
         .dark-mode .section h2 {
-            color: #ffffff;
+            color: #ffffff; /* 다크모드에서의 섹션 제목 색상 */
         }
 
         /* 모바일 환경을 위한 미디어 쿼리 */
         @media (max-width: 768px) {
             .container {
-                display: flex;
-                flex-direction: column;
-                padding: 10px; /* 패딩 축소 */
+                display: flex; /* 플렉스 레이아웃 사용 */
+                flex-direction: column; /* 세로 방향 정렬 */
+                padding: 10px; /* 안쪽 여백 */
             }
             .section {
-                width: 100%;
-                margin-bottom: 10px; /* 섹션 간 간격 추가 */
+                width: 100%; /* 전체 너비 */
+                margin-bottom: 10px; /* 하단 여백 */
             }
             .page-title {
-                padding: 20px 0; /* 패딩 축소 */
+                padding: 20px 0; /* 상하 여백 */
             }
             .page-title h1 {
-                font-size: 2em; /* 폰트 크기 축소 */
+                font-size: 2em; /* 폰트 크기 */
             }
             .chatbot {
-                width: 100%;
-                max-width: none;
-                bottom: 0;
-                right: 0;
-                border-radius: 10px 10px 0 0;
+                width: 100%; /* 전체 너비 */
+                max-width: none; /* 최대 너비 제한 없음 */
+                bottom: 0; /* 하단에 붙임 */
+                right: 0; /* 우측에 붙임 */
+                border-radius: 10px 10px 0 0; /* 상단 모서리만 둥글게 */
             }
             .dark-mode-toggle {
-                top: 10px;
-                right: 10px;
-                padding: 5px 8px;
-                font-size: 12px; /* 모바일에서 폰트 크기 축소 */
+                top: 10px; /* 상단에서 10px 떨어짐 */
+                right: 10px; /* 우측에서 10px 떨어짐 */
+                padding: 5px 8px; /* 안쪽 여백 */
+                font-size: 12px; /* 폰트 크기 */
             }
             
             .chatbot {
-                bottom: 10px;
-                right: 10px;
-                width: auto;
-                height: auto;
+                bottom: 10px; /* 하단에서 10px 떨어짐 */
+                right: 10px; /* 우측에서 10px 떨어짐 */
+                width: auto; /* 자동 너비 */
+                height: auto; /* 자동 높이 */
             }
             
             .chatbot.minimized {
-                width: auto;
-                height: auto;
+                width: auto; /* 자동 너비 */
+                height: auto; /* 자동 높이 */
             }
         }
     </style>
+    <script>
+    // 페이지 로드 시 위치 정보 가져오기
+    window.addEventListener('load', function() {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                var lat = position.coords.latitude;
+                var lng = position.coords.longitude;
+                
+                // 위치 정보를 서버로 전송
+                fetch(window.location.pathname + '?lat=' + lat + '&lng=' + lng)
+                    .then(response => response.text())
+                    .then(html => {
+                        document.body.innerHTML = html;
+                    })
+                    .catch(error => {
+                        console.error("위치 정보 업데이트 실패:", error);
+                    });
+            }, function(error) {
+                console.error("위치 정보를 가져오는데 실패했습니다:", error);
+            });
+        } else {
+            console.log("이 브라우저에서는 위치 정보를 지원하지 않습니다.");
+        }
+    });
+    </script>
 </head>
 <body>
     <button class="dark-mode-toggle" onclick="toggleDarkMode()">다크모드</button>
@@ -514,19 +551,36 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
     </div>
 
     <script>
+    // 원래 크기를 저장할 변수 추가
+    var originalWidth = '300px';
+    var originalHeight = '400px';
+
     // 챗봇 최소화/최대화 토글 함수
     function toggleChatbot() {
         var chatbot = document.getElementById('chatbot');
-        var minimizeBtn = chatbot.querySelector('.minimize-btn');
         chatbot.classList.toggle('minimized');
+        var minimizeBtn = chatbot.querySelector('.minimize-btn');
         if (chatbot.classList.contains('minimized')) {
+            // 최소화 전 크기 저장
+            originalWidth = chatbot.style.width || '300px';
+            originalHeight = chatbot.style.height || '400px';
             minimizeBtn.textContent = '+';
+            chatbot.style.width = 'auto';
+            chatbot.style.height = 'auto';
         } else {
             minimizeBtn.textContent = '-';
-            chatbot.style.width = '300px';  // 기본 너비로 복원
-            chatbot.style.height = '400px'; // 기본 높이로 복원
+            // 원래 크기로 복원
+            chatbot.style.width = originalWidth;
+            chatbot.style.height = originalHeight;
         }
     }
+
+    // 챗봇 헤더 클릭 이벤트 수정
+    document.querySelector('.chatbot-header').addEventListener('click', function(e) {
+        if (!e.target.classList.contains('minimize-btn')) {
+            toggleChatbot();
+        }
+    });
 
     // 챗봇 크기 조절 함수
     function initResize(e) {
@@ -542,6 +596,10 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
 
     function stopResize() {
         window.removeEventListener('mousemove', resize);
+        // 크기 조절 후 현재 크기를 원래 크기로 저장
+        var chatbot = document.getElementById('chatbot');
+        originalWidth = chatbot.style.width;
+        originalHeight = chatbot.style.height;
     }
 
     // 메시지 전송 함수
