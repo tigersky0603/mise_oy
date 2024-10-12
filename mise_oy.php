@@ -1,7 +1,63 @@
 <?php
 // API 키 설정
-$weather_api_key = "DEs8z42ojaLCoQhRJ81jzXwjTkTA5cuZoM8OGti6pxr5Key8LjM%2BkgW6l5f04lUo8DOvInplnqgFYBQhDnC4JA%3D%3D"; // 기상청 API 키
-$air_quality_api_key = "DEs8z42ojaLCoQhRJ81jzXwjTkTA5cuZoM8OGti6pxr5Key8LjM%2BkgW6l5f04lUo8DOvInplnqgFYBQhDnC4JA%3D%3D"; // 대기질 API 키
+$weather_api_key = "LCuy9eWKCdC6S6qsHWBEl4Yfuxv0UPJP1yJVDl1jxPP5Ne6PbGHPI9%2BQLRWdqOJ1fdGMEhdRONk4O9X7AZPT9A%3D%3D"; // 기상청 API 키
+$air_quality_api_key = "LCuy9eWKCdC6S6qsHWBEl4Yfuxv0UPJP1yJVDl1jxPP5Ne6PbGHPI9%2BQLRWdqOJ1fdGMEhdRONk4O9X7AZPT9A%3D%3D"; // 대기질 API 키
+
+// OpenAI API 키 설정
+$openai_api_key = "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";
+
+// OpenAI API 호출 함수
+function callOpenAI($prompt) {
+    global $openai_api_key;
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, 'https://api.openai.com/v1/chat/completions');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $openai_api_key
+    ]);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        'model' => 'gpt-3.5-turbo',
+        'messages' => [
+            ['role' => 'system', 'content' => '당신은 날씨와 대기질에 대해 전문적인 지식을 가진 도우미입니다.'],
+            ['role' => 'user', 'content' => $prompt]
+        ],
+        'temperature' => 0.7,
+        'max_tokens' => 150
+    ]));
+
+    $response = curl_exec($ch);
+    
+    if ($response === false) {
+        $error = curl_error($ch);
+        curl_close($ch);
+        return '오류가 발생했습니다: ' . $error;
+    }
+    
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return '응답을 파싱하는 데 오류가 발생했습니다.';
+    }
+    
+    if (isset($result['error'])) {
+        return '오류가 발생했습니다: ' . $result['error']['message'];
+    }
+    
+    return $result['choices'][0]['message']['content'] ?? '죄송합니다. 응답을 생성할 수 없습니다.';
+}
+
+// AJAX 요청 처리
+if (isset($_POST['message'])) {
+    $user_message = $_POST['message'];
+    $bot_response = callOpenAI($user_message);
+    echo json_encode(['response' => $bot_response]);
+    exit;
+}
 
 // 사용자 위치 정보 가져오기
 $latitude = $_GET['lat'] ?? null; // URL 파라미터에서 위도 가져오기, 없으면 null
@@ -16,6 +72,31 @@ if ($latitude === null || $longitude === null) {
 
 // 기상청 단기예보 조회 API 호출
 $weather_url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"; // API URL
+
+$now = new DateTime();  // 현재 시각을 받아 DateTime 객체 생성
+$now->modify('-2 hour');    // 1시간 빼고 계산.
+$base_date = $now->format('Ymd');   // YYYYMMDD 형식의 날짜 문자열 추출
+$base_time = $now->format('H') . '00';  // HH00 형식의 시간 문자열 추출 (분을 00으로 고정)
+
+$queryParams = '?' . urlencode('serviceKey') . '=' . $weather_api_key;
+$queryParams .= '&' . urlencode('pageNo') . '=' . urlencode('1');
+$queryParams .= '&' . urlencode('numOfRows') . '=' . urlencode('1000');
+$queryParams .= '&' . urlencode('dataType') . '=' . urlencode('JSON');
+$queryParams .= '&' . urlencode('base_date') . '=' . urlencode($base_date);
+$queryParams .= '&' . urlencode('base_time') . '=' . urlencode($base_time);
+$queryParams .= '&' . urlencode('nx') . '=' . floor($latitude * 1.5); // 위도를 기상청 격자 좌표로 변환
+$queryParams .= '&' . urlencode('ny') . '=' . floor($longitude * 1.5); // 경도를 기상청 격자 좌표로 변환
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $weather_url . $queryParams);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+curl_setopt($ch, CURLOPT_HEADER, FALSE);
+curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+
+$weather_response = curl_exec($ch);
+curl_close($ch);
+
+/*
 $weather_params = array(
     'serviceKey' => $weather_api_key, // API 키
     'pageNo' => '1', // 페이지 번호
@@ -27,6 +108,7 @@ $weather_params = array(
     'ny' => floor($longitude * 1.5) // 경도를 기상청 격자 좌표로 변환
 );
 $weather_response = file_get_contents($weather_url . '?' . http_build_query($weather_params)); // API 호출 및 응답 받기
+*/
 $weather_data = json_decode($weather_response, true); // JSON 데이터를 배열로 변환
 
 // 에어코리아 대기오염정보 API 호출
@@ -63,6 +145,28 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
             $weather_class = 'default'; // 기본 상태
     }
 } elseif ($weather_condition == 'PTY' && $weather_value != '0') { // 강수 형태이고 비가 오는 경우
+    switch ($weather_value) {
+        case '1':
+            $weather_class = 'rainy'; // 비
+            break;
+        case '2':
+            $weather_class = 'rainy/snowy'; // 비/눈
+            break;
+        case '3':
+            $weather_class = 'snowy'; // 눈
+            break;
+        case '5':
+            $weather_class = 'rainy'; // 빗방울
+            break;
+        case '6':
+            $weather_class = 'rainy/snowy'; // 빗방울 눈날림
+            break;
+        case '7':
+            $weather_class = 'snowy'; // 눈날림
+            break;
+        default:
+            $weather_class = 'default'; // 기본 상태
+    }
     $weather_class = 'rainy'; // 비
 }
 ?>
@@ -136,7 +240,7 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
         }
         
         .dark-mode .chatbot-header {
-            background-color: #1E3A5F; /* 다크모드 챗봇 헤더 배경색 */
+            background-color: #1E3A5F; /* 다크모드 챗봇 헤더 경색 */
         }
         
         .dark-mode .chatbot-input input {
@@ -290,7 +394,7 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
             align-items: center; /* 세로 중앙 정렬 */
         }
         .minimize-btn, .resize-handle {
-            background: none; /* 배경 없음 */
+            background: none; /* 배경 음 */
             border: none; /* 테두리 없음 */
             color: white; /* 텍스트 색상 */
             font-size: 20px; /* 폰트 크기 */
@@ -348,7 +452,7 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
             cursor: pointer; /* 마우스 오버 시 커서 변경 */
         }
 
-        /* 뉴스 섹션 스타일 추가 */
+        /* 뉴스 섹션 스타일 수정 */
         .news-section {
             grid-column: span 3; /* 3열 차지 */
             background-color: #E1F5FE; /* 배경색 */
@@ -371,6 +475,13 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
         .news-item p {
             margin: 0; /* 여백 제거 */
             color: #666666; /* 텍스트 색상 */
+        }
+        .news-item a {
+            text-decoration: none; /* 링크 밑줄 제거 */
+            color: inherit; /* 부모 요소의 색상 상속 */
+        }
+        .news-item a:hover {
+            text-decoration: underline; /* 호버 시 밑줄 표시 (선택사항) */
         }
 
         /* 기존 스타일에 추가 */
@@ -397,11 +508,11 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
             color: #ffffff; /* 다크모드에서의 섹션 제목 색상 */
         }
 
-        /* 모바일 환경을 위한 미디어 쿼리 */
+        /* 모바일 환경을 위 미디어 쿼리 */
         @media (max-width: 768px) {
             .container {
                 display: flex; /* 플렉스 레이아웃 사용 */
-                flex-direction: column; /* 세로 방향 정렬 */
+                flex-direction: column; /* 세로 향 정렬 */
                 padding: 10px; /* 안쪽 여백 */
             }
             .section {
@@ -441,6 +552,7 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
             }
         }
     </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
     // 페이지 로드 시 위치 정보 가져오기
     window.addEventListener('load', function() {
@@ -449,7 +561,7 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
                 var lat = position.coords.latitude;
                 var lng = position.coords.longitude;
                 
-                // 위치 정보를 서버로 전송
+                // 위 정보를 서버로 전송
                 fetch(window.location.pathname + '?lat=' + lat + '&lng=' + lng)
                     .then(response => response.text())
                     .then(html => {
@@ -465,92 +577,7 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
             console.log("이 브라우저에서는 위치 정보를 지원하지 않습니다.");
         }
     });
-    </script>
-</head>
-<body>
-    <button class="dark-mode-toggle" onclick="toggleDarkMode()">다크모드</button>
-    
-    <div class="page-title <?php echo $weather_class; ?>"> <!-- 날씨에 따른 클래스 적용 -->
-        <h1>미세로운 생활</h1> <!-- 페이지 제목 -->
-        <div class="weather-icon"></div> <!-- 날씨 아이콘 -->
-    </div>
-    
-    <!-- 메인 컨테이너 -->
-    <div class="container">
-        <!-- 현재 날씨 섹션 -->
-        <section class="section current-weather">
-            <h2>현재 날씨</h2> <!-- 섹션 제목 -->
-            <p>위치: <?php echo $latitude, ', ', $longitude; ?></p> <!-- 위치 정보 표시 -->
-            <p>온도: <span class="temperature"><?php echo $weather_data['response']['body']['items']['item'][0]['obsrValue']; ?>℃</span></p> <!-- 온도 표시 -->
-            <p>습도: <?php echo $weather_data['response']['body']['items']['item'][1]['obsrValue']; ?>%</p> <!-- 습도 표시 -->
-            <p>풍속: <?php echo $weather_data['response']['body']['items']['item'][3]['obsrValue']; ?>m/s</p> <!-- 풍속 표시 -->
-        </section>
 
-        <!-- 대기질 정보 섹션 -->
-        <section class="section air-quality">
-            <h2>대기질 정보</h2> <!-- 섹션 제목 -->
-            <p>PM10: <?php echo $air_quality_data['response']['body']['items'][0]['pm10Value']; ?>㎍/㎥</p> <!-- PM10 수치 표시 -->
-            <p>PM2.5: <?php echo $air_quality_data['response']['body']['items'][0]['pm25Value']; ?>㎍/㎥</p> <!-- PM2.5 수치 표시 -->
-        </section>
-
-        <section class="section hourly-forecast">
-            <h2>시간별 예보</h2>
-            <p>시간별 예보 정보는 준비 중입니다.</p>
-        </section>
-
-        <section class="section daily-forecast">
-            <h2>주간 예보</h2>
-            <p>주간 예보 정보는 준비 중입니다.</p>
-        </section>
-
-        <section class="section weather-map">
-            <h2>날씨 지도</h2>
-            <!-- 여기에 날씨 지도를 표시할 수 있습니다 -->
-            <p>날씨 지도는 준비 중입니다.</p>
-        </section>
-
-        <!-- 뉴스 섹션 추가 -->
-        <section class="section news-section">
-            <h2>날씨 및 미세먼지 관련 뉴스</h2>
-            <ul class="news-list">
-                <?php
-                // 여기서는 예시 데이터를 사용합니다. 실제로는 API나 RSS 피드에서 데이터를 가져와야 합니다.
-                $news_items = [
-                    ['title' => '폭염 주의보 발령, 열대야 현상 지속될 전망', 'summary' => '기상청은 이번 주 전국적으로 폭염이 지속될 것으로 예보했습니다.'],
-                    ['title' => '미세먼지 농도 상승, 외출 시 마스크 착용 권고', 'summary' => '환경부는 내일부터 미세먼지 농도가 높아질 것으로 예상되어 외출 시 마크 착용을 권고했습니다.'],
-                    ['title' => '장마 시작, 집중호우 대비 필요', 'summary' => '이번 주말부터 장마가 시작될 예정이며, 일부 지역에서는 집중우가 예상됩니다.'],
-                ];
-
-                foreach ($news_items as $item) {
-                    echo "<li class='news-item'>";
-                    echo "<h3>{$item['title']}</h3>";
-                    echo "<p>{$item['summary']}</p>";
-                    echo "</li>";
-                }
-                ?>
-            </ul>
-        </section>
-    </div>
-
-    <!-- 챗봇 -->
-    <div class="chatbot" id="chatbot">
-        <div class="chatbot-header">
-            날씨 챗봇
-            <div class="chatbot-controls">
-                <button class="resize-handle" onmousedown="initResize(event)">⇲</button>
-                <button class="minimize-btn" onclick="toggleChatbot()">-</button>
-            </div>
-        </div>
-        <div class="chatbot-content"> <!-- 챗봇 내용 -->
-            <div class="chatbot-messages" id="chatbotMessages"></div> <!-- 메시지 표시 영역 -->
-        </div>
-        <div class="chatbot-input"> <!-- 챗봇 입력 영역 -->
-            <input type="text" id="chatbotInput" placeholder="메시지를 입력하세요..."> <!-- 메시지 입력 필드 -->
-            <button onclick="sendMessage()">전송</button> <!-- 전송 버튼 -->
-        </div>
-    </div>
-
-    <script>
     // 원래 크기를 저장할 변수 추가
     var originalWidth = '300px';
     var originalHeight = '400px';
@@ -604,22 +631,37 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
 
     // 메시지 전송 함수
     function sendMessage() {
-        var input = document.getElementById('chatbotInput'); // 입력 필드 요소 가져오기
-        var message = input.value.trim(); // 입력 메시지 가져오기 및 공백 제거
-        if (message !== '') { // 메시지가 비어있지 않은 경우
-            var messagesContainer = document.getElementById('chatbotMessages'); // 메시지 컨테이너 요소 가져오기
-            messagesContainer.innerHTML += '<p><strong>사용자:</strong> ' + message + '</p>'; // 사용자 메시지 추가
-            messagesContainer.innerHTML += '<p><strong>챗봇:</strong> 죄송합니다. 아직 응답을 생성할 수 없습니다.</p>'; // 챗봇 응답 추가
-            input.value = ''; // 입력 필드 초기화
-            messagesContainer.scrollTop = messagesContainer.scrollHeight; // 스크롤을 최하단으로 이동
+        var input = document.getElementById('chatbotInput');
+        var message = input.value.trim();
+        if (message !== '') {
+            var messagesContainer = document.getElementById('chatbotMessages');
+            messagesContainer.innerHTML += '<p><strong>사용자:</strong> ' + message + '</p>';
+            input.value = '';
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // AJAX를 사용하여 서버에 메시지 전송
+            $.ajax({
+                url: window.location.href,
+                method: 'POST',
+                data: { message: message },
+                dataType: 'json',
+                success: function(data) {
+                    messagesContainer.innerHTML += '<p><strong>챗봇:</strong> ' + data.response + '</p>';
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                },
+                error: function() {
+                    messagesContainer.innerHTML += '<p><strong>챗봇:</strong> 죄송합니다. 오류가 발생했습니다.</p>';
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            });
         }
     }
 
-    // 엔터 키 이벤트 리스너 추가
+    // 엔터 키 이벤트 리스너
     document.getElementById('chatbotInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') { // 엔터 키를 렀을 때
+        if (e.key === 'Enter') {
             e.preventDefault(); // 기본 동작 방지 (폼 제출 방지)
-            sendMessage(); // 메시지 전송 함수 호출
+            sendMessage();
         }
     });
     
@@ -661,7 +703,7 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
         updateChatbotStyle(); // 초기 챗봇 스타일 설정
         updateToggleButtonText(); // 초기 토글 버튼 텍스트 설정
         
-        // 모바일 환경 확인 및 챗봇 최소화
+        // 모바 환경 확인 및 챗봇 최소화
         if (window.innerWidth <= 768) {
             minimizeChatbot();
         }
@@ -683,5 +725,138 @@ if ($weather_condition == 'SKY') { // 하늘 상태인 경우
         }
     });
     </script>
+</head>
+<body>
+    <button class="dark-mode-toggle" onclick="toggleDarkMode()">다크모드</button>
+    
+    <div class="page-title <?php echo $weather_class; ?>"> <!-- 날씨에 따른 클래스 적용 -->
+        <h1>미세로운 생활</h1> <!-- 페이지 제목 -->
+        <div class="weather-icon"></div> <!-- 날씨 아이콘 -->
+    </div>
+    
+    <!-- 메인 컨테이너 -->
+    <div class="container">
+        <!-- 현재 날씨 섹션 -->
+        <section class="section current-weather">
+            <h2>현재 날씨</h2> <!-- 섹션 제목 -->
+            <p>위치: <?php echo $latitude, ', ', $longitude; ?></p> <!-- 위치 정보 표시 -->
+            <p>온도: <span class="temperature"><?php echo $weather_data['response']['body']['items']['item'][0]['obsrValue']; ?>℃</span></p> <!-- 온도 표시 -->
+            <p>습도: <?php echo $weather_data['response']['body']['items']['item'][1]['obsrValue']; ?>%</p> <!-- 습도 표시 -->
+            <p>풍속: <?php echo $weather_data['response']['body']['items']['item'][3]['obsrValue']; ?>m/s</p> <!-- 풍속 표시 -->
+        </section>
+
+        <!-- 대기질 정보 섹션 -->
+        <section class="section air-quality">
+            <h2>대기질 정보</h2> <!-- 섹션 제목 -->
+            <p>PM10: <?php echo $air_quality_data['response']['body']['items'][0]['pm10Value']; ?>㎍/㎥</p> <!-- PM10 수치 표시 -->
+            <p>PM2.5: <?php echo $air_quality_data['response']['body']['items'][0]['pm25Value']; ?>㎍/㎥</p> <!-- PM2.5 수치 표시 -->
+        </section>
+
+        <section class="section hourly-forecast">
+            <h2>시간별 예보</h2>
+            <p>시간별 예보 정보는 준비 중입니다.</p>
+        </section>
+
+        <section class="section daily-forecast">
+            <h2>주간 예보</h2>
+            <p>주간 예보 정보는 준비 중입니다.</p>
+        </section>
+
+        <section class="section weather-map">
+            <h2>날씨 지도</h2>
+            <!-- 여기에 날씨 지도를 표시할 수 있습니다 -->
+            <p>날씨 지도는 준비 중입니다.</p>
+        </section>
+
+        <!-- 뉴스 섹션 추가 -->
+        <section class="section news-section">
+            <h2>날씨 및 미세먼지 관련 뉴스</h2>
+            <ul class="news-list">
+                <?php
+                $apiKey = 'd570ffb039ae4aa1a8f889662890d2b0';
+                $query = urlencode('날씨 OR 기상 OR 기온 OR 강수 OR 폭염 OR 한파 OR 태풍 OR 장마 OR 눈 OR 비 OR 바람 OR 습도 OR 미세먼지 OR 초미세먼지 OR PM10 OR PM2.5 OR 대기질 OR 황사 OR 공기');
+                $from = date('Y-m-d', strtotime('-7 days'));
+                $to = date('Y-m-d');
+                $sortBy = 'publishedAt';
+                $language = 'ko';
+                $pageSize = 20;
+
+                $endpoint = "https://newsapi.org/v2/everything?q={$query}&from={$from}&to={$to}&sortBy={$sortBy}&language={$language}&pageSize={$pageSize}&apiKey={$apiKey}";
+
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $endpoint);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_USERAGENT, 'WeatherNewsApp/1.0');
+                $response = curl_exec($ch);
+                curl_close($ch);
+
+                $news_data = json_decode($response, true);
+
+                if ($news_data && isset($news_data['articles'])) {
+                    $displayed_count = 0;
+                    $allowed_keywords = array('날씨', '기상', '기온', '강수', '폭염', '한파', '태풍', '장마', '눈', '비', '바람', '습도', '미세먼지', '초미세먼지', 'PM10', 'PM2.5', '대기질', '황사', '공기 오염');
+                    $forbidden_keywords = array('사설', '정치', '경향', '경제', '사회', '문화', '스포츠', '연예', '금융', '주식', '증권', '부동산', '환율', '무역', '소비자 물가', '투자', '소비', '교육', '복지', '노동', '범죄', '교통', '주택', '청년', '성폭력', '대통령', '국회', '선거', '정당', '외교', '법원', '정부', '법안', '의원', '국제', '분쟁', '유엔', '전쟁', '수출', '수입', '관세', '세계', '난민');
+
+                    foreach ($news_data['articles'] as $item) {
+                        $is_relevant = false;
+                        $is_forbidden = false;
+
+                        foreach ($allowed_keywords as $keyword) {
+                            if (mb_stripos($item['title'], $keyword) !== false || 
+                                mb_stripos($item['description'], $keyword) !== false) {
+                                $is_relevant = true;
+                                break;
+                            }
+                        }
+
+                        foreach ($forbidden_keywords as $keyword) {
+                            if (mb_stripos($item['title'], $keyword) !== false || 
+                                mb_stripos($item['description'], $keyword) !== false) {
+                                $is_forbidden = true;
+                                break;
+                            }
+                        }
+
+                        if ($is_relevant && !$is_forbidden) {
+                            echo "<li class='news-item'>";
+                            echo "<a href='{$item['url']}' target='_blank'>";
+                            echo "<h3>{$item['title']}</h3>";
+                            echo "<p>{$item['description']}</p>";
+                            echo "<p>출처: {$item['source']['name']}, 게시일: " . date('Y-m-d H:i', strtotime($item['publishedAt'])) . "</p>";
+                            echo "</a>";
+                            echo "</li>";
+                            
+                            $displayed_count++;
+                            if ($displayed_count >= 3) break;
+                        }
+                    }
+                    if ($displayed_count == 0) {
+                        echo "<li>관련 뉴스를 찾을 수 없습니다.</li>";
+                    }
+                } else {
+                    echo "<li>뉴스를 불러오는 데 실패했습니다.</li>";
+                }
+                ?>
+            </ul>
+        </section>
+    </div>
+
+    <!-- 챗봇 -->
+    <div class="chatbot" id="chatbot">
+        <div class="chatbot-header">
+            날씨 챗봇
+            <div class="chatbot-controls">
+                <button class="resize-handle" onmousedown="initResize(event)">⇲</button>
+                <button class="minimize-btn" onclick="toggleChatbot()">-</button>
+            </div>
+        </div>
+        <div class="chatbot-content"> <!-- 챗봇 내용 -->
+            <div class="chatbot-messages" id="chatbotMessages"></div> <!-- 메시지 표시 영역 -->
+        </div>
+        <div class="chatbot-input"> <!-- 챗봇 입력 영역 -->
+            <input type="text" id="chatbotInput" placeholder="메시지를 입력하세요..."> <!-- 메시지 입력 필드 -->
+            <button onclick="sendMessage()">전송</button> <!-- 전송 버튼 -->
+        </div>
+    </div>
 </body>
 </html>
